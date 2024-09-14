@@ -10,9 +10,9 @@ from . import models
 from .database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
-
+# 192.168.193.31
 try: 
-    conn = psycopg2.connect(host='192.168.193.31', database='fastapi', user='postgres', password='Kapitan 7',
+    conn = psycopg2.connect(host='192.168.192.124', database='fastapi', user='postgres', password='Kapitan 7',
                             cursor_factory=RealDictCursor)
     cursor = conn.cursor()
     print("Dataset connection was successful")
@@ -99,18 +99,22 @@ def delete_post(id:int, db: Session = Depends(get_db)):
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @app.put("/posts/{id}", status_code=status.HTTP_200_OK)
-def update_post(id:int, post:Post = Body(...)):
+def update_post(id:int, post:Post = Body(...), db: Session = Depends(get_db)):
     # index_post = find_index(id)
-    cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""",(post.title, post.content, post.published, str(id)))
-    updated_post = cursor.fetchone()
+    # cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""",(post.title, post.content, post.published, str(id)))
+    # updated_post = cursor.fetchone()
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    updated_post = post_query.first()
     if updated_post == None:
         #print(index_post)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id {id} not found")
+    post_query.update(dict(post), synchronize_session=False)
+    db.commit()
     # updated_post = dict(post)
     # updated_post['id'] = id
     # my_posts[index_post] = updated_post
     #return {"message":f"update post with id {id}"}
-    conn.commit()
-    return {'data':updated_post}
+    # conn.commit()
+    return {'data':post_query.first()}
     
     
