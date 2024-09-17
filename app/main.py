@@ -1,18 +1,21 @@
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
+from passlib.context import CryptContext
 from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from sqlalchemy.orm import Session
-from . import models
+from . import models, schemas
 from .database import engine, get_db
 
+# Using bcrypt for hashing the password
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 models.Base.metadata.create_all(bind=engine)
-# 192.168.193.31
+
 try: 
-    conn = psycopg2.connect(host='192.168.192.124', database='fastapi', user='postgres', password='Kapitan 7',
+    conn = psycopg2.connect(host='192.168.1.211', database='fastapi', user='postgres', password='Kapitan 7',
                             cursor_factory=RealDictCursor)
     cursor = conn.cursor()
     print("Dataset connection was successful")
@@ -20,10 +23,7 @@ except Exception as error:
     print("Dataset connection was failed")
     print("Error:",error)
 
-class Post(BaseModel):
-    title: str
-    content: str
-    published: bool = True
+
 
 my_posts = []
 
@@ -37,22 +37,18 @@ app = FastAPI()
 
 
 
-@app.get("/posts")
+@app.get("/posts", response_model=List[schemas.Post])
 async def root(db: Session = Depends(get_db)):
     # cursor.execute("""SELECT * FROM posts""")
     # posts = cursor.fetchall()
     posts = db.query(models.Post).all()
     print(posts)
-    return {"posts": posts} 
-
-@app.get("/sqlalchemy")
-async def test_posts(db: Session = Depends(get_db)):
-    posts = db.query(models.Post).all()
-    return {"post":posts}
+    return posts 
 
 
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-async def create_post(post:Post, db: Session = Depends(get_db)):
+
+@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
+async def create_post(post:schemas.PostBase, db: Session = Depends(get_db)):
     # new_post = dict(new_post)
     # new_post["id"] = randrange(1,100000)
     # my_posts.append(new_post)
@@ -64,9 +60,9 @@ async def create_post(post:Post, db: Session = Depends(get_db)):
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
-    return {"messages": new_post}
+    return new_post
 
-@app.get("/posts/{id}")
+@app.get("/posts/{id}", response_model=schemas.Post)
 async def get_post(id:int, response:Response, db: Session = Depends(get_db) ):
     # cursor.execute("""SELECT * FROM posts WHERE id = %s """, (str(id)))
     # post = cursor.fetchone()
@@ -77,7 +73,7 @@ async def get_post(id:int, response:Response, db: Session = Depends(get_db) ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id {id} not found")
         #  response.status_code = status.HTTP_404_NOT_FOUND
         #  return {"message":f"post with id {id} not found"}
-    return {"post": post}
+    return post
 
 def find_index(id):
     for i,post in enumerate(my_posts):
@@ -98,8 +94,8 @@ def delete_post(id:int, db: Session = Depends(get_db)):
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-@app.put("/posts/{id}", status_code=status.HTTP_200_OK)
-def update_post(id:int, post:Post = Body(...), db: Session = Depends(get_db)):
+@app.put("/posts/{id}", status_code=status.HTTP_200_OK, response_model=schemas.Post)
+def update_post(id:int, post:schemas.Post = Body(...), db: Session = Depends(get_db)):
     # index_post = find_index(id)
     # cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""",(post.title, post.content, post.published, str(id)))
     # updated_post = cursor.fetchone()
@@ -115,6 +111,19 @@ def update_post(id:int, post:Post = Body(...), db: Session = Depends(get_db)):
     # my_posts[index_post] = updated_post
     #return {"message":f"update post with id {id}"}
     # conn.commit()
-    return {'data':post_query.first()}
+    return post_query.first()
+
+
+@app.post("/users", status_code=status.HTTP_201_CREATED, response_model=schemas.UserOut)
+async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    # Hash the password
+    hashed_password = pwd_context.hash(user.password)
+    user.password = hashed_password
+    new_user = models.User(**dict(user))
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
     
     
