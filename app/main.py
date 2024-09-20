@@ -8,13 +8,13 @@ from psycopg2.extras import RealDictCursor
 from sqlalchemy.orm import Session
 from . import models, schemas, utils
 from .database import engine, get_db
-from .routers import post, user
+from .routers import post, user, auth
 
 
 models.Base.metadata.create_all(bind=engine)
 
 try: 
-    conn = psycopg2.connect(host='192.168.192.200', database='fastapi', user='postgres', password='Kapitan 7',
+    conn = psycopg2.connect(host='192.168.192.219', database='fastapi', user='postgres', password='Kapitan 7',
                             cursor_factory=RealDictCursor)
     cursor = conn.cursor()
     print("Dataset connection was successful")
@@ -40,6 +40,7 @@ def find_index(id):
 app = FastAPI()
 app.include_router(post.router)
 app.include_router(user.router)
+app.include_router(auth.router)
 
 
 
