@@ -18,7 +18,7 @@ async def root(db: Session = Depends(get_db), current_user: int = Depends(oauth2
         models.Vote, models.Vote.post_id==models.Post.id, isouter=True).group_by(models.Post.id).filter(
             models.Post.title.contains(search)).limit(limit).offset(skip).all()
     print(results)
-    return results 
+    return results
 
 
 
